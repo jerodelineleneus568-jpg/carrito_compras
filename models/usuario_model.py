@@ -18,7 +18,7 @@ class UsuarioModel:
         try:
             hashed_pwd = generate_password_hash(password)
             with conn.cursor() as cur:
-                cur.execute("INSERT INTO usuarios(nombre, email, password_hash, rol) VALUES (%s, %s, %s,)",
+                cur.execute("INSERT INTO usuarios(nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s)",
                 
                 )
                 conn.commit()

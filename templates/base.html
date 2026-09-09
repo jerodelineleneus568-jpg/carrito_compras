@@ -20,6 +20,7 @@
                 {% if session.get('rol') in ['admin', 'bodega'] %}
                     <a href="{{ url_for('carrito.inventario') }}" class="btn btn-success btn-sm fw-semibold">📦 Stock</a>
                     <a href="{{ url_for('carrito.movimientos') }}" class="btn btn-info btn-sm fw-semibold text-white">📋 Histórico</a>
+                    <a href="{{ url_for('carrito.reportes') }}" class="btn btn-dark btn-sm fw-semibold">📊 Reportes</a>
                 {% endif %}
 
                 {% if session.get('usuario_id') %}
