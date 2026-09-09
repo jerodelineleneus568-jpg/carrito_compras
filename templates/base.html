@@ -10,7 +10,7 @@
 <body>
     <nav class="navbar navbar-dark navbar-custom py-3 mb-4">
         <div class="container d-flex justify-content-between align-items-center">
-            <a class="navbar-brand fw-bold fs-4" href="{{ url_for('carrito.catalogo') }}">🛒 StoreApp MVC</a>
+            <a class="navbar-brand fw-bold fs-4" href="{{ url_for('carrito.catalogo') }}">🛒 Carrito de Compras </a>
             
             <div class="d-flex align-items-center gap-2">
                 <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-light btn-sm">Catálogo</a>
@@ -20,6 +20,7 @@
                 {% if session.get('rol') in ['admin', 'bodega'] %}
                     <a href="{{ url_for('carrito.inventario') }}" class="btn btn-success btn-sm fw-semibold">📦 Stock</a>
                     <a href="{{ url_for('carrito.movimientos') }}" class="btn btn-info btn-sm fw-semibold text-white">📋 Histórico</a>
+                    <a href="{{ url_for('carrito.reportes') }}" class="btn btn-dark btn-sm fw-semibold">📊 Reportes</a>
                 {% endif %}
 
                 {% if session.get('usuario_id') %}

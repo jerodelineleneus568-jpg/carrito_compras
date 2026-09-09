@@ -1,3 +1,11 @@
+import io
+import pandas as pd
+from flask import send_file
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from models.producto_model import ProductoModel
 from controllers.auth_controller import role_required
@@ -176,3 +184,113 @@ def inventario():
 def movimientos():
     lista_movimientos = ProductoModel.obtener_movimientos(limite=100)
     return render_template('movimientos.html', movimientos=lista_movimientos)
+
+
+
+ # --- PANEL DE REPORTERÍA Y GRÁFICOS ---
+@carrito_bp.route('/bodega/reportes')
+@role_required('admin', 'bodega')
+def reportes():
+    resumen_tipo, top_productos = ProductoModel.obtener_resumen_movimientos()
+    return render_template(
+        'reportes.html',
+        resumen_tipo=resumen_tipo,
+        top_productos=top_productos
+    )
+
+# --- EXPORTAR A EXCEL ---
+@carrito_bp.route('/bodega/reportes/exportar/excel')
+@role_required('admin', 'bodega')
+def exportar_excel():
+    movimientos = ProductoModel.obtener_movimientos(limite=1000)
+    
+    data = []
+    for m in movimientos:
+        data.append({
+            'ID Evento': m['id'],
+            'Fecha': m['fecha'].strftime('%Y-%m-%d %H:%M:%S') if m['fecha'] else '',
+            'Tipo': m['tipo'],
+            'Producto': m['producto_nombre'],
+            'Cantidad': m['cantidad'],
+            'Stock Previo': m['stock_anterior'],
+            'Stock Posterior': m['stock_nuevo'],
+            'Motivo': m['motivo'],
+            'Responsable': f"{m['usuario_nombre']} ({m['usuario_rol']})"
+        })
+
+    df = pd.DataFrame(data)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Historico_Stock')
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name="reporte_movimientos_stock.xlsx",
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# --- EXPORTAR A PDF ---
+@carrito_bp.route('/bodega/reportes/exportar/pdf')
+@role_required('admin', 'bodega')
+def exportar_pdf():
+    movimientos = ProductoModel.obtener_movimientos(limite=100)
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elementos = []
+    styles = getSampleStyleSheet()
+
+    titulo_style = ParagraphStyle(
+        'TituloDoc',
+        parent=styles['Heading1'],
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor("#212529"),
+        spaceAfter=14
+    )
+    
+    elementos.append(Paragraph("Auditoría de Movimientos e Histórico de Stock", titulo_style))
+    elementos.append(Paragraph("Reporte consolidado de entradas, despachos y ajustes de bodega.", styles['Normal']))
+    elementos.append(Spacer(1, 15))
+
+    encabezados = ['Fecha', 'Tipo', 'Producto', 'Cant.', 'Prev -> Post', 'Responsable']
+    tabla_datos = [encabezados]
+
+    for m in movimientos:
+        tabla_datos.append([
+            m['fecha'].strftime('%d/%m/%Y %H:%M') if m['fecha'] else 'N/A',
+            m['tipo'],
+            m['producto_nombre'][:18],
+            str(m['cantidad']),
+            f"{m['stock_anterior']} -> {m['stock_nuevo']}",
+            m['usuario_nombre'][:15]
+        ])
+
+    tabla = Table(tabla_datos, colWidths=[95, 60, 140, 45, 90, 120])
+    tabla.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#212529")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#F8F9FA")),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DEE2E6")),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ALIGN', (2, 1), (2, -1), 'LEFT'),
+    ]))
+
+    elementos.append(tabla)
+    doc.build(elementos)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        download_name="reporte_movimientos_stock.pdf",
+        as_attachment=True,
+        mimetype="application/pdf"
+    )   

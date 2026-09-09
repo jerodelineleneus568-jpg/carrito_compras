@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold m-0">Reportería y Análisis de Eventos</h3>
+        <p class="text-muted small m-0">Estadísticas visuales de rotación y exportación documental</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('carrito.exportar_excel') }}" class="btn btn-outline-success fw-semibold">
+            Descargar Excel (.xlsx)
+        </a>
+        <a href="{{ url_for('carrito.exportar_pdf') }}" class="btn btn-outline-danger fw-semibold">
+            Descargar PDF (.pdf)
+        </a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Gráfico 1: Entradas vs Salidas -->
+    <div class="col-md-6 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
+            <h6 class="fw-bold text-secondary mb-3">Balance de Movimientos (Unidades)</h6>
+            <div style="max-height: 280px; display: flex; justify-content: center;">
+                <canvas id="graficoTipo"
+                        data-labels='{{ resumen_tipo | map(attribute="tipo") | list | tojson }}'
+                        data-totales='{{ resumen_tipo | map(attribute="total_unidades") | list | tojson }}'>
+                </canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico 2: Top Productos -->
+    <div class="col-md-6 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
+            <h6 class="fw-bold text-secondary mb-3">Top 5 Productos por Volumen de Traspaso</h6>
+            <div style="max-height: 280px;">
+                <canvas id="graficoTop"
+                        data-labels='{{ top_productos | map(attribute="nombre") | list | tojson }}'
+                        data-totales='{{ top_productos | map(attribute="total_movido") | list | tojson }}'>
+                </canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 1. Gráfico de Balance (Doughnut)
+    const elTipo = document.getElementById('graficoTipo');
+    const tiposLabels = JSON.parse(elTipo.dataset.labels || '[]');
+    const tiposTotales = JSON.parse(elTipo.dataset.totales || '[]');
+
+    new Chart(elTipo, {
+        type: 'doughnut',
+        data: {
+            labels: tiposLabels.length ? tiposLabels : ['Sin registros'],
+            datasets: [{
+                data: tiposTotales.length ? tiposTotales : [1],
+                backgroundColor: ['#198754', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // 2. Gráfico Top Productos (Bar)
+    const elTop = document.getElementById('graficoTop');
+    const topLabels = JSON.parse(elTop.dataset.labels || '[]');
+    const topTotales = JSON.parse(elTop.dataset.totales || '[]');
+
+    new Chart(elTop, {
+        type: 'bar',
+        data: {
+            labels: topLabels,
+            datasets: [{
+                label: 'Unidades acumuladas',
+                data: topTotales,
+                backgroundColor: '#0d6efd'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>
+{% endblock %}

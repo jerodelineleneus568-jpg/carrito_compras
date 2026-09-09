@@ -148,3 +148,27 @@ class ProductoModel:
                 return cur.fetchall()
         finally:
             conn.close()
+
+
+    @staticmethod
+    def obtener_resumen_movimientos():
+        """Devuelve agregaciones para gráficos: balance de entradas vs salidas y top productos movidos."""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Total entradas vs salidas
+                cur.execute(""" SELECT tipo, SUM(cantidad) AS total_unidades, COUNT(*) AS total_eventos FROM movimientos_stock GROUP BY tipo """) 
+                resumen_tipo = cur.fetchall()
+
+                # Top 5 productos con mayor rotación/movimiento
+                cur.execute(""" SELECT p.nombre, SUM(m.cantidad) AS total_movido FROM movimientos_stock m 
+                                INNER JOIN productos p ON m.producto_id = p.id
+                                GROUP BY p.nombre
+                                ORDER BY total_movido DESC
+                                LIMIT 5 """)
+
+
+                top_productos = cur.fetchall()
+                return resumen_tipo, top_productos
+        finally:
+            conn.close()                               
