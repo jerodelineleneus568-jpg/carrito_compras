@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4 fw-bold">Detalle de tu Carrito</h3>
+
+{% if items %}
+<div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 90px;">Imagen</th>
+                    <th>Producto</th>
+                    <th>Precio</th>
+                    <th style="width: 220px;">Cantidad</th>
+                    <th>Subtotal</th>
+                    <th class="text-center">Quitar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>
+                        <img src="{{ item.imagen }}" alt="{{ item.nombre }}" class="cart-thumb" onerror="this.src='https://via.placeholder.com/65'">
+                    </td>
+                    <td class="fw-semibold">{{ item.nombre }}</td>
+                    <td>${{ "{:,.0f}".format(item.precio) }}</td>
+                    <td>
+                        <form action="{{ url_for('carrito.actualizar', producto_id=item.id) }}" method="POST" class="d-flex align-items-center">
+                            <input type="number" name="cantidad" value="{{ item.cantidad }}" min="1" max="{{ item.stock }}" class="form-control form-control-sm text-center me-2" style="width: 75px;" required>
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Actualizar</button>
+                        </form>
+                        <span class="text-muted small">Disponible: {{ item.stock }}</span>
+                    </td>
+                    <td class="fw-bold text-success">${{ "{:,.0f}".format(item.subtotal) }}</td>
+                    <td class="text-center">
+                        <form action="{{ url_for('carrito.eliminar', producto_id=item.id) }}" method="POST">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
+        <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-secondary">← Seguir comprando</a>
+        <div>
+            <span class="fs-5 me-3">Total: <strong class="fs-4 text-success">${{ "{:,.0f}".format(total) }}</strong></span>
+            <form action="{{ url_for('carrito.finalizar') }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-success px-4 fw-bold">Completar Compra</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card text-center py-5 shadow-sm border-0 rounded-3">
+    <h5 class="text-muted mb-3">No hay productos en el carrito</h5>
+    <div>
+        <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-primary">Ir a ver productos</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

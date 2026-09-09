@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold m-0">Catálogo de Productos</h3>
+</div>
+
+<div class="row">
+    {% for p in productos %}
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 product-card {{ 'border-danger' if p.stock == 0 else '' }}">
+            <div class="product-img-container">
+                <img src="{{ p.imagen }}" alt="{{ p.nombre }}" onerror="this.src='https://via.placeholder.com/300x200?text=Sin+Imagen'">
+            </div>
+            <div class="card-body d-flex flex-column p-3">
+                <h5 class="fw-bold mb-1 fs-6">{{ p.nombre }}</h5>
+                <p class="text-secondary small flex-grow-1 mb-2">{{ p.descripcion }}</p>
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="price-tag">${{ "{:,.0f}".format(p.precio) }}</span>
+                    {% if p.stock > 0 %}
+                        <span class="stock-badge">Stock: {{ p.stock }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">Agotado</span>
+                    {% endif %}
+                </div>
+
+                <!-- Bloque de compra -->
+                {% if p.stock > 0 %}
+                    <form action="{{ url_for('carrito.agregar', producto_id=p.id) }}" method="POST">
+                        <div class="input-group">
+                            <input type="number" name="cantidad" value="1" min="1" max="{{ p.stock }}" class="form-control text-center" required>
+                            <button type="submit" class="btn btn-primary fw-semibold">Agregar</button>
+                        </div>
+                    </form>
+                {% else %}
+                    <button class="btn btn-secondary w-100 fw-semibold" disabled>Sin Stock</button>
+                {% endif %}
+
+                <!-- Bloque de Reabastecer: Exclusivo para 'admin' y 'bodega' -->
+                {% if session.get('rol') in ['admin', 'bodega'] %}
+                <div class="mt-3 pt-2 border-top">
+                    <label class="form-label small text-muted mb-1">Reponer Stock:</label>
+                    <form action="{{ url_for('carrito.reabastecer', producto_id=p.id) }}" method="POST" class="d-flex align-items-center gap-1">
+                        <input type="number" name="cantidad_stock" value="5" min="1" class="form-control form-control-sm text-center" style="max-width: 65px;" required>
+                        <button type="submit" class="btn btn-sm btn-outline-success w-100 fw-semibold">+ Reponer</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <!-- Bloque de Actualizar Precio: Exclusivo para 'admin' -->
+                {% if session.get('rol') == 'admin' %}
+                <div class="mt-2 pt-2 border-top">
+                    <label class="form-label small text-muted mb-1">Editar Precio:</label>
+                    <form action="{{ url_for('carrito.actualizar_precio', producto_id=p.id) }}" method="POST" class="d-flex align-items-center gap-1">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" name="nuevo_precio" value="{{ p.precio }}" min="0.01" class="form-control text-center" required>
+                            <button type="submit" class="btn btn-outline-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda MVC</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-dark navbar-custom py-3 mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold fs-4" href="{{ url_for('carrito.catalogo') }}">🛒 StoreApp MVC</a>
+            
+            <div class="d-flex align-items-center gap-2">
+                <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-light btn-sm">Catálogo</a>
+                <a href="{{ url_for('carrito.ver_carrito') }}" class="btn btn-warning btn-sm fw-semibold shadow-sm">Mi Carrito</a>
+
+                <!-- Enlaces exclusivos de gestión -->
+                {% if session.get('rol') in ['admin', 'bodega'] %}
+                    <a href="{{ url_for('carrito.inventario') }}" class="btn btn-success btn-sm fw-semibold">📦 Stock</a>
+                    <a href="{{ url_for('carrito.movimientos') }}" class="btn btn-info btn-sm fw-semibold text-white">📋 Histórico</a>
+                {% endif %}
+
+                {% if session.get('usuario_id') %}
+                    <span class="badge bg-secondary ms-2">{{ session.get('nombre') }} ({{ session.get('rol')|upper }})</span>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm fw-semibold ms-2">Iniciar Sesión</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
