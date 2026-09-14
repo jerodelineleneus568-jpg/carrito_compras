@@ -1,21 +1,34 @@
 import io
 import pandas as pd
-from flask import send_file
+from urllib.parse import urlparse
+from flask import (
+    Blueprint, render_template, request, redirect, 
+    url_for, flash, session, send_file
+)
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from models.producto_model import ProductoModel
 from controllers.auth_controller import role_required
 
 carrito_bp = Blueprint('carrito', __name__)
 
+def es_url_interna_segura(target):
+    """Valida que la URL de redirección pertenezca estrictamente al mismo host (Anti-Open Redirect)."""
+    if not target:
+        return False
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(target)
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
+
+
 @carrito_bp.route('/')
 def catalogo():
     productos = ProductoModel.obtener_todos()
     return render_template('productos.html', productos=productos)
+
 
 @carrito_bp.route('/carrito')
 def ver_carrito():
@@ -24,28 +37,32 @@ def ver_carrito():
     total = 0.0
 
     if carrito:
-        ids = [int(pid) for pid in carrito.keys()]
-        productos = ProductoModel.obtener_por_lista_ids(ids)
-        for prod in productos:
-            cant = carrito.get(str(prod['id']), 0)
-            subtotal = float(prod['precio']) * cant
-            total += subtotal
-            items.append({
-                'id': prod['id'],
-                'nombre': prod['nombre'],
-                'precio': float(prod['precio']),
-                'stock': prod['stock'],
-                'imagen': prod.get('imagen', ''),
-                'cantidad': cant,
-                'subtotal': round(subtotal, 2)
-            })
+        ids = [int(pid) for pid in carrito.keys() if pid.isdigit()]
+        if ids:
+            productos = ProductoModel.obtener_por_lista_ids(ids)
+            for prod in productos:
+                cant = carrito.get(str(prod['id']), 0)
+                subtotal = float(prod['precio']) * cant
+                total += subtotal
+                items.append({
+                    'id': prod['id'],
+                    'nombre': prod['nombre'],
+                    'precio': float(prod['precio']),
+                    'stock': prod['stock'],
+                    'imagen': prod.get('imagen', ''),
+                    'cantidad': cant,
+                    'subtotal': round(subtotal, 2)
+                })
 
     return render_template('carrito.html', items=items, total=round(total, 2))
+
 
 @carrito_bp.route('/carrito/agregar/<int:producto_id>', methods=['POST'])
 def agregar(producto_id):
     try:
         cantidad = int(request.form.get('cantidad', 1))
+        if cantidad <= 0:
+            cantidad = 1
     except (ValueError, TypeError):
         cantidad = 1
 
@@ -70,6 +87,7 @@ def agregar(producto_id):
         flash(f"'{producto['nombre']}' añadido al carrito.", "success")
 
     return redirect(url_for('carrito.ver_carrito'))
+
 
 @carrito_bp.route('/carrito/actualizar/<int:producto_id>', methods=['POST'])
 def actualizar(producto_id):
@@ -98,6 +116,7 @@ def actualizar(producto_id):
 
     return redirect(url_for('carrito.ver_carrito'))
 
+
 @carrito_bp.route('/carrito/eliminar/<int:producto_id>', methods=['POST'])
 def eliminar(producto_id):
     carrito = session.get('carrito', {})
@@ -108,6 +127,7 @@ def eliminar(producto_id):
         session.modified = True
         flash("Producto quitado del carrito.", "info")
     return redirect(url_for('carrito.ver_carrito'))
+
 
 @carrito_bp.route('/carrito/finalizar', methods=['POST'])
 def finalizar():
@@ -127,6 +147,7 @@ def finalizar():
 
     return redirect(url_for('carrito.ver_carrito'))
 
+
 @carrito_bp.route('/producto/reabastecer/<int:producto_id>', methods=['POST'])
 @role_required('admin', 'bodega')
 def reabastecer(producto_id):
@@ -135,7 +156,7 @@ def reabastecer(producto_id):
     except (ValueError, TypeError):
         cantidad = 0
 
-    motivo = request.form.get('motivo', 'Reposición manual').strip()
+    motivo = request.form.get('motivo', 'Reposición manual').strip()[:100]
     usuario_id = session.get('usuario_id')
 
     if cantidad <= 0:
@@ -147,9 +168,12 @@ def reabastecer(producto_id):
         else:
             flash(f"Error: {mensaje}", "danger")
 
-    # Si viene desde la vista de inventario, redirigir a ella
-    next_url = request.referrer or url_for('carrito.catalogo')
-    return redirect(next_url)
+    # Sanitización de redirección segura (Mitiga Open Redirect en DAST/SAST)
+    referrer = request.referrer
+    if referrer and es_url_interna_segura(referrer):
+        return redirect(referrer)
+    return redirect(url_for('carrito.inventario'))
+
 
 @carrito_bp.route('/producto/actualizar-precio/<int:producto_id>', methods=['POST'])
 @role_required('admin')
@@ -168,17 +192,19 @@ def actualizar_precio(producto_id):
         else:
             flash(f"Error: {mensaje}", "danger")
 
-    next_url = request.referrer or url_for('carrito.catalogo')
-    return redirect(next_url)
+    referrer = request.referrer
+    if referrer and es_url_interna_segura(referrer):
+        return redirect(referrer)
+    return redirect(url_for('carrito.inventario'))
 
-# --- REPOSITORIO DE STOCK (PANEL DE INVENTARIO) ---
+
 @carrito_bp.route('/bodega/inventario')
 @role_required('admin', 'bodega')
 def inventario():
     productos = ProductoModel.obtener_todos()
     return render_template('inventario.html', productos=productos)
 
-# --- HISTÓRICO DE MOVIMIENTOS ---
+
 @carrito_bp.route('/bodega/movimientos')
 @role_required('admin', 'bodega')
 def movimientos():
@@ -186,8 +212,6 @@ def movimientos():
     return render_template('movimientos.html', movimientos=lista_movimientos)
 
 
-
- # --- PANEL DE REPORTERÍA Y GRÁFICOS ---
 @carrito_bp.route('/bodega/reportes')
 @role_required('admin', 'bodega')
 def reportes():
@@ -198,7 +222,7 @@ def reportes():
         top_productos=top_productos
     )
 
-# --- EXPORTAR A EXCEL ---
+
 @carrito_bp.route('/bodega/reportes/exportar/excel')
 @role_required('admin', 'bodega')
 def exportar_excel():
@@ -232,7 +256,7 @@ def exportar_excel():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# --- EXPORTAR A PDF ---
+
 @carrito_bp.route('/bodega/reportes/exportar/pdf')
 @role_required('admin', 'bodega')
 def exportar_pdf():
@@ -293,4 +317,4 @@ def exportar_pdf():
         download_name="reporte_movimientos_stock.pdf",
         as_attachment=True,
         mimetype="application/pdf"
-    )   
+    )
