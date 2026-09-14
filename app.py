@@ -38,4 +38,4 @@ app.register_blueprint(auth_bp)
 if __name__ == '__main__':
     # Configuración limpia de producción/auditoría (debug=False para Bandit)
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host='127.0.0.1', port=5001, debug=debug_mode, ssl_context='adhoc')
+    app.app.run(host='0.0.0.0', port=5001, debug=debug_mode, ssl_context='adhoc')run(host='127.0.0.1', port=5001, debug=debug_mode, ssl_context='adhoc')
