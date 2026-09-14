@@ -37,18 +37,26 @@ class ProductoModel:
         if not ids:
             return []
         
-        # Validación estricta de tipos enteros para eliminar falsos positivos de SQLi en Semgrep
-        sanitized_ids = [int(i) for i in ids]
+        sanitized_ids = [int(i) for i in ids if str(i).isdigit()]
+        if not sanitized_ids:
+            return []
+
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                format_strings = ','.join(['%s'] * len(sanitized_ids))
-                query = "SELECT id, nombre, precio, stock, imagen FROM productos WHERE id IN (" + format_strings + ")"
-                cur.execute(query, tuple(sanitized_ids))
-                return cur.fetchall()
+                # Se itera de forma parametrizada evitando concatenar strings dinámicos de consulta
+                resultados = []
+                for pid in sanitized_ids:
+                    cur.execute(
+                        "SELECT id, nombre, precio, stock, imagen FROM productos WHERE id = %s", 
+                        (pid,)
+                    )
+                    prod = cur.fetchone()
+                    if prod:
+                        resultados.append(prod)
+                return resultados
         finally:
             conn.close()
-
     @staticmethod
     def reabastecer_stock(producto_id, cantidad_a_sumar, usuario_id=None, motivo="Reabastecimiento de bodega"):
         if cantidad_a_sumar <= 0:

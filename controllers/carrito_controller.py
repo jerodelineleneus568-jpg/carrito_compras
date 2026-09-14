@@ -168,18 +168,21 @@ def reabastecer(producto_id):
         else:
             flash(f"Error: {mensaje}", "danger")
 
-    # Sanitización de redirección segura (Mitiga Open Redirect en DAST/SAST)
-    referrer = request.referrer
-    if referrer and es_url_interna_segura(referrer):
-        return redirect(referrer)
     return redirect(url_for('carrito.inventario'))
 
 
 @carrito_bp.route('/producto/actualizar-precio/<int:producto_id>', methods=['POST'])
 @role_required('admin')
 def actualizar_precio(producto_id):
+    raw_precio = str(request.form.get('nuevo_precio', '0')).strip().lower()
+
+    # Mitigación estricta de NaN Injection (semgrep: nan-injection)
+    if 'nan' in raw_precio or 'inf' in raw_precio:
+        flash("Valor numérico inválido.", "danger")
+        return redirect(url_for('carrito.inventario'))
+
     try:
-        nuevo_precio = float(request.form.get('nuevo_precio', 0))
+        nuevo_precio = float(raw_precio)
     except (ValueError, TypeError):
         nuevo_precio = 0.0
 
@@ -192,9 +195,6 @@ def actualizar_precio(producto_id):
         else:
             flash(f"Error: {mensaje}", "danger")
 
-    referrer = request.referrer
-    if referrer and es_url_interna_segura(referrer):
-        return redirect(referrer)
     return redirect(url_for('carrito.inventario'))
 
 
