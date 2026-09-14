@@ -1,0 +1,2 @@
+# Excluir regla errónea de Django en templates Flask/Jinja2
+django-no-csrf-token
