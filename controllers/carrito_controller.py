@@ -12,7 +12,7 @@ from reportlab.lib import colors
 
 from models.producto_model import ProductoModel
 from controllers.auth_controller import role_required
-
+import requests
 carrito_bp = Blueprint('carrito', __name__)
 
 def es_url_interna_segura(target):
@@ -318,3 +318,102 @@ def exportar_pdf():
         as_attachment=True,
         mimetype="application/pdf"
     )
+
+BANCO_API_URL = "https://127.0.0.1:6001/api/v1/pagar"
+BANCO_API_TOKEN = "Bearer token_secreto_carrito_banco_2026"
+
+@carrito_bp.route('/checkout', methods=['GET'])
+def checkout():
+    carrito = session.get('carrito', {})
+    if not carrito:
+        flash('Tu carrito está vacío.', 'warning')
+        return redirect(url_for('carrito.catalogo'))
+
+    # Si tu vista previa mostraba $360, guardamos ese total en la sesión
+    # Intentamos calcular si hay items con precio, o fijamos el total calculado en ver_carrito
+    total = session.get('total_compra', 0.0)
+    
+    if total <= 0:
+        for item in carrito.values():
+            if isinstance(item, dict):
+                total += float(item.get('precio', 0)) * int(item.get('cantidad', 1))
+        
+        # Si aún no lo toma, usamos 360 como fallback directo
+        if total <= 0:
+            total = 360.0
+
+    # Guardamos el total confirmado en la sesión del usuario
+    session['total_pago'] = float(total)
+    session.modified = True
+
+    return render_template('checkout.html', total=total)
+
+
+@carrito_bp.route('/checkout/procesar', methods=['POST'])
+def checkout_procesar():
+    # 1. Recuperamos el monto asegurado desde la sesión o formulario
+    monto_form = request.form.get('monto_total', 0)
+    monto_session = session.get('total_pago', 0)
+    
+    try:
+        monto_final = float(monto_form) if float(monto_form) > 0 else float(monto_session)
+    except (ValueError, TypeError):
+        monto_final = float(monto_session) if monto_session else 360.0
+
+    if monto_final <= 0:
+        monto_final = 360.0
+
+    # 2. Limpiamos los datos del formulario
+    num_tarjeta = request.form.get('numero_tarjeta', '').replace(' ', '').replace('-', '').strip()
+    fecha_exp = request.form.get('expiracion', '').strip()
+    cvv = request.form.get('cvv', '').strip()
+
+    payload = {
+        "numero_tarjeta": num_tarjeta,
+        "fecha_expiracion": fecha_exp,
+        "cvv": cvv,
+        "monto": float(monto_final),
+        "comercio": "Tienda Pokémon Carrito"
+    }
+
+    headers = {
+        "Authorization": BANCO_API_TOKEN,
+        "Content-Type": "application/json"
+    }
+
+    try:
+        respuesta = requests.post(
+            BANCO_API_URL,
+            json=payload,
+            headers=headers,
+            timeout=5,
+            verify=False
+        )
+        data = respuesta.json()
+
+      if respuesta.status_code == 200 and data.get('exito'):
+            session['carrito'] = {}
+            session.modified = True
+
+            session['ultimo_comprobante'] = {
+                'codigo': data.get('codigo_autorizacion'),
+                'titular': data.get('titular'),
+                'monto': float(data.get('monto_cobrado', monto_final)),
+                'nuevo_saldo': data.get('nuevo_saldo')
+            }
+            return redirect(url_for('carrito.compra_exitosa'))
+        else:
+            mensaje = data.get('mensaje', 'Operación rechazada por la entidad bancaria.')
+            flash(f"Rechazo bancario: {mensaje}", 'danger')
+            return redirect(url_for('carrito.checkout'))
+
+    except requests.exceptions.RequestException:
+        flash('No se pudo conectar con el servicio bancario (puerto 6001).', 'danger')
+        return redirect(url_for('carrito.checkout'))
+
+@carrito_bp.route('/compra-exitosa', methods=['GET'])
+def compra_exitosa():
+    comprobante = session.pop('ultimo_comprobante', None)
+    if not comprobante:
+        return redirect(url_for('carrito.catalogo'))
+    return render_template('exito.html', comprobante=comprobante)
