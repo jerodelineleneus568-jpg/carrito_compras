@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Pagar con Tarjeta Bancaria</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div style="max-width: 500px; margin: 40px auto; padding: 25px; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h2>Finalizar Compra</h2>
+        <p style="margin-bottom: 20px;">Total a pagar: <strong style="color: #2563eb; font-size: 20px;">${{ "{:,.0f}".format(total) }}</strong></p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for cat, msg in messages %}
+                    <div style="padding: 10px; margin-bottom: 15px; border-radius: 5px; background-color: #fee2e2; color: #991b1b;">
+                        {{ msg }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('checkout_procesar') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Número de Tarjeta</label>
+                <input type="text" name="numero_tarjeta" placeholder="4532 1111 2222 4589" required maxlength="19"
+                       style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px;">Vencimiento</label>
+                    <input type="text" name="expiracion" placeholder="12/28" required maxlength="5"
+                           style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px;">CVV</label>
+                    <input type="password" name="cvv" placeholder="123" required maxlength="4"
+                           style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                </div>
+            </div>
+
+            <button type="submit" style="width: 100%; background: #16a34a; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer;">
+                Confirmar y Pagar
+            </button>
+        </form>
+
+        <p style="margin-top: 15px; text-align: center;">
+            <a href="{{ url_for('index') }}" style="color: #64748b; text-decoration: none;">← Cancelar y volver a la tienda</a>
+        </p>
+    </div>
+</body>
+</html>

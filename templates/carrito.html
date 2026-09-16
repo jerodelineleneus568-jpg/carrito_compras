@@ -44,8 +44,9 @@
             </tbody>
         </table>
     </div>
-    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
-        <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-secondary">← Seguir comprando</a>
+    <div class="carrito-acciones" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">← Seguir Comprando</a>
+    <a href="{{ url_for('checkout') }}" class="btn btn-primary" style="background-color: #16a34a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;"></a>
         <div>
             <span class="fs-5 me-3">Total: <strong class="fs-4 text-success">${{ "{:,.0f}".format(total) }}</strong></span>
             <form action="{{ url_for('carrito.finalizar') }}" method="POST" class="d-inline">
@@ -60,6 +61,7 @@
     <h5 class="text-muted mb-3">No hay productos en el carrito</h5>
     <div>
         <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-primary">Ir a ver productos</a>
+        
     </div>
 </div>
 {% endif %}
