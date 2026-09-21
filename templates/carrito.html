@@ -20,19 +20,19 @@
                 {% for item in items %}
                 <tr>
                     <td>
-                        <img src="{{ item.imagen }}" alt="{{ item.nombre }}" class="cart-thumb" onerror="this.src='https://via.placeholder.com/65'">
+                        <img src="{{ item.imagen }}" alt="{{ item.nombre }}" class="cart-thumb" width="50" height="50">
                     </td>
                     <td class="fw-semibold">{{ item.nombre }}</td>
-                    <td>${{ "{:,.0f}".format(item.precio) }}</td>
+                    <td>${{ "%.0f"|format(item.precio|float) }}</td>
                     <td>
-                        <form action="{{ url_for('carrito.actualizar', producto_id=item.id) }}" method="POST" class="d-flex align-items-center">
+                        <form action="{{ url_for('carrito.actualizar', producto_id=item.id) }}" method="POST" class="d-flex align-items-center gap-2">
                             <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token', '') }}">
-                            <input type="number" name="cantidad" value="{{ item.cantidad }}" min="1" max="{{ item.stock }}" class="form-control form-control-sm text-center me-2" style="width: 75px;" required>
+                            <input type="number" name="cantidad" value="{{ item.cantidad }}" min="1" max="{{ item.stock }}" class="form-control form-control-sm text-center" style="width: 70px;">
                             <button type="submit" class="btn btn-sm btn-outline-primary">Actualizar</button>
                         </form>
                         <span class="text-muted small">Disponible: {{ item.stock }}</span>
                     </td>
-                    <td class="fw-bold text-success">${{ "{:,.0f}".format(item.subtotal) }}</td>
+                    <td class="fw-bold text-success">${{ "%.0f"|format(item.subtotal|float) }}</td>
                     <td class="text-center">
                         <form action="{{ url_for('carrito.eliminar', producto_id=item.id) }}" method="POST">
                             <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token', '') }}">
@@ -44,17 +44,26 @@
             </tbody>
         </table>
     </div>
-    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
-        <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-secondary">← Seguir comprando</a>
-        <div>
-            <span class="fs-5 me-3">Total: <strong class="fs-4 text-success">${{ "{:,.0f}".format(total) }}</strong></span>
-            <form action="{{ url_for('carrito.finalizar') }}" method="POST" class="d-inline">
-                <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token', '') }}">
-                <button type="submit" class="btn btn-success px-4 fw-bold">Completar Compra</button>
-            </form>
-        </div>
+
+    <!-- Barra de acciones y pago -->
+    <!-- Barra de acciones y pago -->
+    <div class="card-footer bg-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-secondary">
+        &larr; Seguir comprando
+      </a>
+
+      <div class="d-flex align-items-center gap-3">
+        <span class="fs-5">
+          Total: <strong class="fs-4 text-success">${{ "{:,.0f}".format(total|float) }}</strong>
+        </span>
+
+        <!-- Botón directo a la pasarela bancaria -->
+        <a href="{{ url_for('carrito.checkout') }}" class="btn btn-success px-4 fw-bold">
+          Pagar con Tarjeta Bancaria &rarr;
+        </a>
+      </div>
     </div>
-</div>
+
 {% else %}
 <div class="card text-center py-5 shadow-sm border-0 rounded-3">
     <h5 class="text-muted mb-3">No hay productos en el carrito</h5>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0 rounded-3 p-4">
+            <h4 class="fw-bold mb-3">Finalizar Compra</h4>
+            <p class="text-muted mb-4">Total a pagar: <strong class="fs-4 text-success">${{ "{:,.0f}".format(total) }}</strong></p>
+
+            <form action="{{ url_for('carrito.checkout_procesar') }}" method="POST">
+                 <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token', '') }}"/>
+                 
+                    <!-- Enviamos el monto calculado en el carrito directamente -->
+                 <input type="hidden" name="monto_total" value="{{ total }}">
+
+                <div class="mb-3">
+                     <label class="form-label fw-semibold">Número de Tarjeta</label>
+                     <input type="text" name="numero_tarjeta" class="form-control" placeholder="4532 1111 2222 4589" required maxlength="19">
+                     <div class="form-text">Prueba: <code>4532111122224589</code> (Juan Pérez)</div>
+                </div>
+
+                <div class="row mb-4">
+                     <div class="col-6">
+                          <label class="form-label fw-semibold">Vencimiento</label>
+                          <input type="text" name="expiracion" class="form-control" placeholder="12/28" required maxlength="5">
+                </div>
+                <div class="col-6">
+                     <label class="form-label fw-semibold">CVV</label>
+                     <input type="password" name="cvv" class="form-control" placeholder="123" required maxlength="4">
+                 </div>
+              </div>
+
+              <button type="submit" class="btn btn-success w-100 py-2 fw-bold fs-5">
+                  Confirmar y Pagar
+              </button>
+           </form>
+            <div class="text-center mt-3">
+                <a href="{{ url_for('carrito.ver_carrito') }}" class="text-secondary text-decoration-none small">
+                    ← Cancelar y volver al carrito
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

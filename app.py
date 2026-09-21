@@ -4,6 +4,11 @@ from dotenv import load_dotenv
 from controllers.carrito_controller import carrito_bp
 from controllers.auth_controller import auth_bp
 
+import requests  # <-- AGREGAR AQUÍ
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_wtf.csrf import CSRFProtect
+
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -39,3 +44,5 @@ app.register_blueprint(auth_bp)
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     app.run(host='0.0.0.0', port=5001, debug=debug_mode, ssl_context='adhoc')
+
+

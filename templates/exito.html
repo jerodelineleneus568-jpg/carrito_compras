@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante de Compra</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div style="max-width: 480px; margin: 50px auto; padding: 30px; background: white; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
+        <div style="font-size: 50px; color: #16a34a; margin-bottom: 10px;">✔</div>
+        <h2 style="color: #0f172a; margin-bottom: 5px;">¡Pago Realizado con Éxito!</h2>
+        <p style="color: #64748b; margin-bottom: 25px;">Tu transacción ha sido autorizada por el Banco.</p>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: left; margin-bottom: 25px;">
+            <p><strong>N° de Autorización:</strong> <code style="color: #0284c7;">{{ comprobante.codigo }}</code></p>
+            <p><strong>Titular de la Tarjeta:</strong> {{ comprobante.titular }}</p>
+            <p><strong>Monto Pagado:</strong> ${{ "{:,.0f}".format(comprobante.monto) }}</p>
+            <p><strong>Saldo Restante en Banco:</strong> ${{ "{:,.0f}".format(comprobante.nuevo_saldo) }}</p>
+        </div>
+
+        <a href="{{ url_for('carrito.catalogo') }}" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            Seguir Comprando
+        </a>
+    </div>
+</body>
+</html>

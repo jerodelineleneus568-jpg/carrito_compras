@@ -36,7 +36,7 @@ class ProductoModel:
     def obtener_por_lista_ids(ids):
         if not ids:
             return []
-        
+
         sanitized_ids = [int(i) for i in ids if str(i).isdigit()]
         if not sanitized_ids:
             return []
@@ -44,11 +44,10 @@ class ProductoModel:
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                # Se itera de forma parametrizada evitando concatenar strings dinámicos de consulta
                 resultados = []
                 for pid in sanitized_ids:
                     cur.execute(
-                        "SELECT id, nombre, precio, stock, imagen FROM productos WHERE id = %s", 
+                        "SELECT id, nombre, precio, stock, imagen FROM productos WHERE id = %s",
                         (pid,)
                     )
                     prod = cur.fetchone()
@@ -57,11 +56,12 @@ class ProductoModel:
                 return resultados
         finally:
             conn.close()
+
     @staticmethod
     def reabastecer_stock(producto_id, cantidad_a_sumar, usuario_id=None, motivo="Reabastecimiento de bodega"):
         if cantidad_a_sumar <= 0:
             return False, "La cantidad a reponer debe ser mayor a 0."
-        
+
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
@@ -76,9 +76,8 @@ class ProductoModel:
 
                 cur.execute("UPDATE productos SET stock = %s WHERE id = %s", (stock_nuevo, producto_id))
 
-                # Registrar movimiento en Kardex inmutable
                 cur.execute("""
-                    INSERT INTO movimientos_stock 
+                    INSERT INTO movimientos_stock
                     (producto_id, usuario_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo)
                     VALUES (%s, %s, 'ENTRADA', %s, %s, %s, %s)
                 """, (producto_id, usuario_id, cantidad_a_sumar, stock_anterior, stock_nuevo, motivo))
@@ -87,7 +86,6 @@ class ProductoModel:
                 return True, "Stock actualizado y movimiento registrado."
         except Exception:
             conn.rollback()
-            # Mensaje genérico para evitar filtración de estructura de datos (CWE-209)
             return False, "Error interno de base de datos al reabastecer stock."
         finally:
             conn.close()
@@ -96,7 +94,7 @@ class ProductoModel:
     def actualizar_precio(producto_id, nuevo_precio):
         if nuevo_precio <= 0:
             return False, "El precio debe ser mayor a 0."
-        
+
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
@@ -119,7 +117,7 @@ class ProductoModel:
             with conn.cursor() as cur:
                 productos_bloqueados = {}
 
-                # 1. Bloqueo pesimista y verificación de stock atómica
+                # 1. Bloqueo pesimista y verificación de stock
                 for prod_id, cantidad in items_carrito.items():
                     cur.execute("SELECT id, stock, nombre FROM productos WHERE id = %s FOR UPDATE", (prod_id,))
                     prod = cur.fetchone()
@@ -138,7 +136,7 @@ class ProductoModel:
                     cur.execute("UPDATE productos SET stock = %s WHERE id = %s", (stock_nuevo, prod_id))
 
                     cur.execute("""
-                        INSERT INTO movimientos_stock 
+                        INSERT INTO movimientos_stock
                         (producto_id, usuario_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo)
                         VALUES (%s, %s, 'SALIDA', %s, %s, %s, 'Venta en tienda')
                     """, (prod_id, usuario_id, cantidad, stock_anterior, stock_nuevo))
@@ -177,15 +175,15 @@ class ProductoModel:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT tipo, SUM(cantidad) AS total_unidades, COUNT(*) AS total_eventos 
-                    FROM movimientos_stock 
+                    SELECT tipo, SUM(cantidad) AS total_unidades, COUNT(*) AS total_eventos
+                    FROM movimientos_stock
                     GROUP BY tipo
                 """)
                 resumen_tipo = cur.fetchall()
 
                 cur.execute("""
-                    SELECT p.nombre, SUM(m.cantidad) AS total_movido 
-                    FROM movimientos_stock m 
+                    SELECT p.nombre, SUM(m.cantidad) AS total_movido
+                    FROM movimientos_stock m
                     INNER JOIN productos p ON m.producto_id = p.id
                     GROUP BY p.nombre
                     ORDER BY total_movido DESC

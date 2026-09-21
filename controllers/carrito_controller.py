@@ -1,10 +1,9 @@
 import io
-import pandas as pd
+
 from urllib.parse import urlparse
-from flask import (
-    Blueprint, render_template, request, redirect, 
-    url_for, flash, session, send_file
-)
+import requests
+import pandas as pd
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -26,35 +25,32 @@ def es_url_interna_segura(target):
 
 @carrito_bp.route('/')
 def catalogo():
-    productos = ProductoModel.obtener_todos()
+    productos = ProductoModel.obtener_disponibles()
     return render_template('productos.html', productos=productos)
 
 
-@carrito_bp.route('/carrito')
+@carrito_bp.route('/carrito', methods=['GET'])
 def ver_carrito():
     carrito = session.get('carrito', {})
     items = []
     total = 0.0
 
-    if carrito:
-        ids = [int(pid) for pid in carrito.keys() if pid.isdigit()]
-        if ids:
-            productos = ProductoModel.obtener_por_lista_ids(ids)
-            for prod in productos:
-                cant = carrito.get(str(prod['id']), 0)
-                subtotal = float(prod['precio']) * cant
-                total += subtotal
-                items.append({
-                    'id': prod['id'],
-                    'nombre': prod['nombre'],
-                    'precio': float(prod['precio']),
-                    'stock': prod['stock'],
-                    'imagen': prod.get('imagen', ''),
-                    'cantidad': cant,
-                    'subtotal': round(subtotal, 2)
-                })
+    for prod_id_str, val in carrito.items():
+        cantidad = val['cantidad'] if isinstance(val, dict) else int(val)
+        prod = ProductoModel.obtener_por_id(int(prod_id_str))
+        if prod:
+            subtotal = float(prod['precio']) * cantidad
+            total += subtotal
+            items.append({
+                'id': prod['id'],
+                'nombre': prod['nombre'],
+                'precio': prod['precio'],
+                'cantidad': cantidad,
+                'subtotal': subtotal,
+                'imagen': prod.get('imagen')
+            })
 
-    return render_template('carrito.html', items=items, total=round(total, 2))
+    return render_template('carrito.html', items=items, total=total)
 
 
 @carrito_bp.route('/carrito/agregar/<int:producto_id>', methods=['POST'])
@@ -318,3 +314,113 @@ def exportar_pdf():
         as_attachment=True,
         mimetype="application/pdf"
     )
+
+BANCO_API_URL = "https://127.0.0.1:6001/api/v1/pagar"
+BANCO_API_TOKEN = "Bearer token_secreto_carrito_banco_2026"
+
+@carrito_bp.route('/checkout', methods=['GET'])
+def checkout():
+    carrito = session.get('carrito', {})
+    if not carrito:
+        flash('Tu carrito está vacío.', 'warning')
+        return redirect(url_for('carrito.catalogo'))
+
+    total = 0.0
+    for prod_id_str, item in carrito.items():
+        cantidad = item['cantidad'] if isinstance(item, dict) else int(item)
+        try:
+            prod = ProductoModel.obtener_por_id(int(prod_id_str))
+            if prod:
+                total += float(prod['precio']) * cantidad
+        except Exception:
+            continue
+
+    if total <= 0:
+        flash('Error al calcular el total de los productos.', 'danger')
+        return redirect(url_for('carrito.ver_carrito'))
+
+    session['total_pago'] = total
+    session.modified = True
+
+    return render_template('checkout.html', total=total)
+
+@carrito_bp.route('/checkout/procesar', methods=['POST'])
+def checkout_procesar():
+    carrito = session.get('carrito', {})
+    if not carrito:
+        flash('El carrito está vacío.', 'danger')
+        return redirect(url_for('carrito.catalogo'))
+
+    # Formatear carrito a {int(id): int(cantidad)}
+    items_carrito = {}
+    total_real = 0.0
+
+    for prod_id_str, item in carrito.items():
+        cant = item['cantidad'] if isinstance(item, dict) else int(item)
+        pid = int(prod_id_str)
+        items_carrito[pid] = cant
+
+        prod = ProductoModel.obtener_por_id(pid)
+        if prod:
+            total_real += float(prod['precio']) * cant
+
+    # Datos bancarios del formulario
+    num_tarjeta = request.form.get('numero_tarjeta', '').replace(' ', '').replace('-', '').strip()
+    fecha_exp = request.form.get('expiracion', '').strip()
+    cvv = request.form.get('cvv', '').strip()
+
+    payload = {
+        "numero_tarjeta": num_tarjeta,
+        "fecha_expiracion": fecha_exp,
+        "cvv": cvv,
+        "monto": total_real,
+        "comercio": "Tienda Pokémon"
+    }
+
+    headers = {
+        "Authorization": "Bearer token_secreto_carrito_banco_2026",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        respuesta = requests.post(
+            "https://127.0.0.1:6001/api/v1/pagar",
+            json=payload,
+            headers=headers,
+            timeout=5,
+            verify=False
+        )
+        data = respuesta.json()
+
+        if respuesta.status_code == 200 and data.get('exito'):
+            # PAGO EXITOSO: Descontar stock usando el método nativo con Kardex
+            exito_stock, msg_stock = ProductoModel.procesar_venta(items_carrito, usuario_id=session.get('user_id'))
+            if not exito_stock:
+                flash(f"Advertencia: {msg_stock}", 'warning')
+
+            session['carrito'] = {}
+            session.pop('total_pago', None)
+            session.modified = True
+
+            session['ultimo_comprobante'] = {
+                'codigo': data.get('codigo_autorizacion'),
+                'titular': data.get('titular'),
+                'monto': total_real,
+                'nuevo_saldo': data.get('nuevo_saldo')
+            }
+            return redirect(url_for('carrito.compra_exitosa'))
+        else:
+            mensaje = data.get('mensaje', 'Operación rechazada por el banco.')
+            flash(f"Rechazo bancario: {mensaje}", 'danger')
+            return redirect(url_for('carrito.checkout'))
+
+    except requests.exceptions.RequestException:
+        flash('No se pudo conectar con el servidor bancario (puerto 6001).', 'danger')
+        return redirect(url_for('carrito.checkout'))
+
+@carrito_bp.route('/compra-exitosa', methods=['GET'])
+def compra_exitosa():
+    comprobante = session.pop('ultimo_comprobante', None)
+    if not comprobante:
+        return redirect(url_for('carrito.catalogo'))
+    return render_template('exito.html', comprobante=comprobante)
