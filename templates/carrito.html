@@ -46,18 +46,23 @@
     </div>
 
     <!-- Barra de acciones y pago -->
+    <!-- Barra de acciones y pago -->
     <div class="card-footer bg-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <a href="{{ url_for('carrito.catalogo') }}" class="btn btn-outline-secondary">
+        &larr; Seguir comprando
+      </a>
+
+      <div class="d-flex align-items-center gap-3">
+        <span class="fs-5">
+          Total: <strong class="fs-4 text-success">${{ "{:,.0f}".format(total|float) }}</strong>
+        </span>
+
+        <!-- Botón directo a la pasarela bancaria -->
         <a href="{{ url_for('carrito.checkout') }}" class="btn btn-success px-4 fw-bold">
-        <div class="d-flex align-items-center gap-3">
-            <span class="fs-5">Total: <strong class="fs-4 text-success">${{ "%.0f"|format(total|float) }}</strong></span>
-            
-            <!-- Botón directo a la pasarela bancaria -->
-            <a href="{{ url_for('carrito.checkout') }}" class="btn btn-success px-4 fw-bold">
-                   Pagar con Tarjeta Bancaria →
-            </a>
-        </div>
+          Pagar con Tarjeta Bancaria &rarr;
+        </a>
+      </div>
     </div>
-</div>
 
 {% else %}
 <div class="card text-center py-5 shadow-sm border-0 rounded-3">
